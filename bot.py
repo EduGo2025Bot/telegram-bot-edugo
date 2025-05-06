@@ -33,9 +33,13 @@ user_state: dict[int, dict] = {}        # שאלה אחרונה לכל צ'אט
 
 # ---------- כלי-עזר ----------
 def build_keyboard(opts: list[str]) -> InlineKeyboardMarkup:
-    row = [InlineKeyboardButton(o[0], callback_data=o[0]) for o in opts]
-    row.append(InlineKeyboardButton("דלג ⏭️", callback_data="skip"))
-    return InlineKeyboardMarkup([row])
+    buttons = []
+    for o in opts:
+        # אם יש פורמט "א. ..." → callback = האות לפני הנקודה; אחרת הטקסט המלא
+        cb = o.split(".")[0].strip() if ". " in o else o
+        buttons.append(InlineKeyboardButton(o, callback_data=cb))
+    buttons.append(InlineKeyboardButton("דלג ⏭️", callback_data="skip"))
+    return InlineKeyboardMarkup([buttons])
 
 async def send_question(bot, chat_id: int):
     q = random.choice(QUESTIONS)
