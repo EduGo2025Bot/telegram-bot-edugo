@@ -1,13 +1,13 @@
-# bot.py
-import os
-import json
-import random
-import asyncio
-import threading
+import os, asyncio, json, random
 from pathlib import Path
+from telegram.error import RetryAfter, TelegramError
 
 from flask import Flask, request
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -15,97 +15,95 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# ---------- הגדרות ----------
-TOKEN = os.environ["TOKEN"]   # חובה להגדיר ENV VAR בשם TOKEN
-# Render/OnRender מגדיר את השם של השירות ב-RENDER_SERVICE_NAME
-BASE_URL = os.environ.get(
-    "RENDER_EXTERNAL_URL",
-    f"https://{os.getenv('RENDER_SERVICE_NAME')}.onrender.com"
-).rstrip("/")
+# ---------- הגדרות בסיס ----------
+TOKEN = os.environ["TOKEN"]
+BASE_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 WEBHOOK_URL = f"{BASE_URL}/{TOKEN}"
 
-# ---------- Flask + Telegram ----------
-flask_app   = Flask(__name__)
-application = ApplicationBuilder().token(TOKEN).build()
-
-# יוצרים לולאת אירועים ייעודית ומשיקים אותה ברקע
-event_loop = asyncio.new_event_loop()
-asyncio.set_event_loop(event_loop)
-
-def start_event_loop():
-    event_loop.run_forever()
-
-threading.Thread(target=start_event_loop, daemon=True).start()
-
-# ---------- שאלות ----------
+# ---------- טעינת שאלות ----------
 QUESTIONS = json.loads(
     Path(__file__).with_name("questions.json").read_text(encoding="utf-8")
 )
-user_state: dict[int, dict] = {}
 
-def build_kbd(opts: list[str]) -> InlineKeyboardMarkup:
+# ---------- Telegram & Flask ----------
+flask_app   = Flask(__name__)
+application = ApplicationBuilder().token(TOKEN).build()
+
+user_state: dict[int, dict] = {}        # שאלה אחרונה לכל צ'אט
+
+# ---------- כלי-עזר ----------
+def build_keyboard(opts: list[str]) -> InlineKeyboardMarkup:
     row = [InlineKeyboardButton(o[0], callback_data=o[0]) for o in opts]
     row.append(InlineKeyboardButton("דלג ⏭️", callback_data="skip"))
     return InlineKeyboardMarkup([row])
 
-async def send_question(chat_id: int, bot):
+async def send_question(bot, chat_id: int):
     q = random.choice(QUESTIONS)
     user_state[chat_id] = q
     text = q["question"] + "\n\n" + "\n".join(q["options"])
-    await bot.send_message(chat_id, text, reply_markup=build_kbd(q["options"]))
+    await bot.send_message(chat_id, text, reply_markup=build_keyboard(q["options"]))
+
+async def send_feedback(bot, chat_id: int, text: str):
+    await bot.send_message(chat_id, text)
 
 # ---------- Handlers ----------
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await send_question(update.effective_chat.id, ctx.bot)
+    await send_question(ctx.bot, update.effective_chat.id)
 
 async def on_press(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    qobj    = update.callback_query
-    chat_id = qobj.message.chat_id
-    data    = qobj.data
-    await qobj.answer()
-    # ננעל את הכפתורים של ההודעה הישנה
-    await qobj.edit_message_reply_markup(None)
+    q      = update.callback_query
+    chatId = q.message.chat_id
+    data   = q.data
+    await q.answer()
 
+    # נועל את הכפתורים בהודעה הישנה (הטקסט נשאר)
+    await q.edit_message_reply_markup(None)
+
+    # דילוג → אין פידבק, רק שאלה חדשה
     if data == "skip":
-        return await send_question(chat_id, ctx.bot)
+        await send_question(ctx.bot, chatId)
+        return
 
-    last_q = user_state.get(chat_id)
-    if not last_q:
-        return await ctx.bot.send_message(chat_id, "שלח ‎/start כדי להתחיל.")
+    current = user_state.get(chatId)
+    if not current:                       # בטיחות, לא אמור לקרות
+        await send_feedback(ctx.bot, chatId, "שלח ‎/start כדי להתחיל.")
+        return
 
-    correct = last_q["correct"]
+    correct = current["correct"]
     if data == correct:
-        await ctx.bot.send_message(chat_id, "✅ תשובה נכונה!")
+        await send_feedback(ctx.bot, chatId, "✅ תשובה נכונה!")
     else:
-        await ctx.bot.send_message(chat_id, f"❌ טעות. התשובה הנכונה היא: {correct}")
+        await send_feedback(ctx.bot, chatId, f"❌ טעות. התשובה הנכונה היא: {correct}")
 
-    # ישר שאלה חדשה
-    await send_question(chat_id, ctx.bot)
+    # מיד שאלה חדשה
+    await send_question(ctx.bot, chatId)
 
 application.add_handler(CommandHandler("start", cmd_start))
 application.add_handler(CallbackQueryHandler(on_press))
 
-# ---------- Webhook route ----------
+# ---------- Flask ↔ Telegram ----------
 @flask_app.route(f"/{TOKEN}", methods=["POST"])
-def webhook() -> tuple[str,int]:
-    payload = request.get_json(force=True)
-    update  = Update.de_json(payload, application.bot)
-    # שולחים את העדכון לתוך הלולאה שלנו
-    asyncio.run_coroutine_threadsafe(
-        application.process_update(update),
-        event_loop
-    )
-    return "OK", 200
+def webhook():
+    upd = Update.de_json(request.get_json(force=True), application.bot)
+    asyncio.run(application.process_update(upd))
+    return "ok", 200
 
-# ---------- init webhook ----------
-async def init_webhook():
-    # מנקים קודם webhook קודמים
-    await application.bot.delete_webhook(drop_pending_updates=True)
-    # רושמים חדש
-    await application.bot.set_webhook(WEBHOOK_URL)
-    # מאתחלים את ה־Application (handlers וכו')
+# ---------- רישום Webhook באתחול ----------
+async def init():
+    # מנקה Webhook קודמים כדי להימנע מ-RetryAfter
+    try:
+        await application.bot.delete_webhook(drop_pending_updates=True)
+    except TelegramError:
+        pass
+
+    # רישום עם טיפול ב-RetryAfter (עד 3 ניסיונות)
+    for _ in range(3):
+        try:
+            await application.bot.set_webhook(WEBHOOK_URL)
+            break
+        except RetryAfter as e:
+            await asyncio.sleep(e.retry_after + 1)
+
     await application.initialize()
-    print("✅ Webhook registered at", WEBHOOK_URL)
 
-# רושמים את ה־webhook ברקע
-asyncio.run_coroutine_threadsafe(init_webhook(), event_loop)
+asyncio.run(init())
