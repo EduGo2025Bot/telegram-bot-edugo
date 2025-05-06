@@ -18,7 +18,7 @@ from telegram.ext import (
 )
 
 # ---------- הגדרות בסיס ----------
-TOKEN = os.environ["7919478368:AAEcPWmgJeNehEinFHosfltI9sUQGplsa2w"]   # עובר מ-Render כ-Environment Variable
+TOKEN = os.environ["TOKEN"]   # עובר מ-Render כ-Environment Variable
 
 # Render מספק את ה-URL החיצוני במשתנה RENDER_EXTERNAL_URL
 BASE_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
