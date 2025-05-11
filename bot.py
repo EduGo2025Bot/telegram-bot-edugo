@@ -35,10 +35,19 @@ user_state: dict[int, dict] = {}        # שאלה אחרונה לכל צ'אט
 def build_keyboard(opts: list[str]) -> InlineKeyboardMarkup:
     buttons = []
     for o in opts:
-        # אם יש פורמט "א. ..." → callback = האות לפני הנקודה; אחרת הטקסט המלא
-        cb = o.split(".")[0].strip() if ". " in o else o
-        buttons.append(InlineKeyboardButton(o, callback_data=cb))
+        if ". " in o:
+            # אופציה של רב־ברירה מסוג "א. טקסט..."
+            display = o.split(".")[0].strip()    # רק האות לפני הנקודה
+            callback = display                   # שולחים אותה חזרה כ־callback_data
+        else:
+            # נכון/לא נכון או כל טקסט חופשי אחר
+            display = o
+            callback = o
+        buttons.append(InlineKeyboardButton(text=display, callback_data=callback))
+
+    # תמיד מוסיפים כפתור דילוג
     buttons.append(InlineKeyboardButton("דלג ⏭️", callback_data="skip"))
+    # מחזירים שורה אחת של כפתורים
     return InlineKeyboardMarkup([buttons])
 
 async def send_question(bot, chat_id: int):
