@@ -43,6 +43,9 @@ async def _init_webhook():
         url  = f"https://{host}/webhook/{SECRET}"
         await application.bot.delete_webhook(drop_pending_updates=True)
         await application.bot.set_webhook(url=url)
+    # מפעיל את workerים הפנימיים (dispatcher) ברקע
+    await application.initialize()
+    await application.start()         # application.stop() יקרה אוטומטית בסגירה
 
 # call it (from sync context)
 asyncio.run(_init_webhook())
