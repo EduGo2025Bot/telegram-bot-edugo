@@ -20,7 +20,7 @@ application = (
 
 # רישום כל ה-handlers
 register_handlers(application)
-launch_keep_alive(application)
+# launch_keep_alive(application)
 
 # ניתן להריץ לוקלית ב-Polling לצורך בדיקות
 if __name__ == "__main__":
