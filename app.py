@@ -29,7 +29,7 @@ register_handlers(application)
 
 # --- קטע שרץ ב-Render בלבד – הגדרת webhook ---
 # @app.before_first_request
-def _init_webhook() -> None:
+# def _init_webhook() -> None:
 #     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
 #         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
 #         url  = f"https://{host}/webhook/{SECRET}"
