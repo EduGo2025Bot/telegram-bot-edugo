@@ -29,12 +29,23 @@ register_handlers(application)
 # --- קטע שרץ ב-Render בלבד – הגדרת webhook ---
 # @app.before_first_request
 def _init_webhook() -> None:
+#     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
+#         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
+#         url  = f"https://{host}/webhook/{SECRET}"
+#         application.bot.delete_webhook(drop_pending_updates=True)
+#         application.bot.set_webhook(url=url)
+# _init_webhook()
+import asyncio
+
+async def _init_webhook():
     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
         url  = f"https://{host}/webhook/{SECRET}"
-        application.bot.delete_webhook(drop_pending_updates=True)
-        application.bot.set_webhook(url=url)
-_init_webhook()
+        await application.bot.delete_webhook(drop_pending_updates=True)
+        await application.bot.set_webhook(url=url)
+
+# call it (from sync context)
+asyncio.run(_init_webhook())
 @app.post(f"/webhook/{SECRET}")
 def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
