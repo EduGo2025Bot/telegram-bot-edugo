@@ -1,3 +1,4 @@
+# app.py  –  Flask + python-telegram-bot webhook
 import os, typing as t
 from flask import Flask, request, abort
 from telegram import Update
@@ -17,21 +18,23 @@ application = (
     .build()
 )
 
+# רישום כל ה-handlers
 register_handlers(application)
-# launch_keep_alive(application)  # optional
+# launch_keep_alive(application)
 
-# --- Set webhook when app starts ---
+# ניתן להריץ לוקלית ב-Polling לצורך בדיקות
+if __name__ == "__main__":
+    application.run_polling()
+
+# --- קטע שרץ ב-Render בלבד – הגדרת webhook ---
+# @app.before_first_request
 def _init_webhook() -> None:
     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
         url  = f"https://{host}/webhook/{SECRET}"
         application.bot.delete_webhook(drop_pending_updates=True)
-        application.bot.set_webhook(url=url)  # ✅ SET HERE
+        application.bot.set_webhook(url=url)
 
-# call it immediately
-_init_webhook()
-
-# --- Webhook endpoint ---
 @app.post(f"/webhook/{SECRET}")
 def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
