@@ -18,7 +18,7 @@ application = (
 )
 
 register_handlers(application)
-# launch_keep_alive(application)  # optional
+launch_keep_alive(application)  # optional
 
 # --- Set webhook when app starts ---
 def _init_webhook() -> None:
