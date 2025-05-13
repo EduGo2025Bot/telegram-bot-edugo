@@ -1,6 +1,6 @@
 python-telegram-bot[rate-limiter]==21.*
 
-flask
+Flask<3
 gunicorn
 pypdf
 python-docx
