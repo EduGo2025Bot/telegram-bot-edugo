@@ -36,7 +36,7 @@ if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
     webhook_url = f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/webhook/{SECRET}"
     
     # Using application.run_webhook is better than manually setting up webhook
-    @app.before_first_request
+    # @app.before_first_request
     def setup_webhook():
         logger.info(f"Setting up webhook at: {webhook_url}")
         asyncio.run(application.bot.set_webhook(url=webhook_url, drop_pending_updates=True))
