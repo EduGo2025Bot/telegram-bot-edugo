@@ -34,14 +34,18 @@ register_handlers(application)
 # Initialize webhook
 if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
     webhook_url = f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/webhook/{SECRET}"
-    
-    # Using application.run_webhook is better than manually setting up webhook
-    # @app.before_first_request
-    def setup_webhook():
-        logger.info(f"Setting up webhook at: {webhook_url}")
-        asyncio.run(application.bot.set_webhook(url=webhook_url, drop_pending_updates=True))
+    logger.info(f"Running webhook listener on: {webhook_url}")
+    # Listen on 0.0.0.0:<PORT>, Telegram will POST updates to /webhook/<SECRET>
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        url_path=f"/webhook/{SECRET}",
+        webhook_url=webhook_url,
+        drop_pending_updates=True,
+    )
 else:
-    logger.warning("RENDER_EXTERNAL_HOSTNAME not set, webhook not configured")
+    # local dev
+    application.run_polling()
 
 # Health check endpoint
 @app.route("/")
