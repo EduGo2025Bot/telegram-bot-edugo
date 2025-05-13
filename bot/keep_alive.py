@@ -1,6 +1,6 @@
 # bot/keep_alive.py  –  גרסה מתוקנת עם JobQueue
 import logging, os
-from telegram import ChatAction
+from telegram.constants import ChatAction
 from telegram.ext import Application, CallbackContext
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
