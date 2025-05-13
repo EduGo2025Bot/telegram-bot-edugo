@@ -1,13 +1,10 @@
-# bot/keep_alive.py  –  גרסה מתוקנת עם JobQueue
 import logging, os
 from telegram.constants import ChatAction
 from telegram.ext import Application, CallbackContext
 
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-CHAT      = os.environ.get("KEEP_ALIVE_CHAT")  # יכול להיות None
+CHAT = os.environ.get("KEEP_ALIVE_CHAT")  # יכול להיות None
 
-# הפונקציה שה-Job Queue תריץ
-def _heartbeat(ctx: CallbackContext):
+def _heartbeat(ctx: CallbackContext) -> None:
     if not CHAT:
         return
     try:
@@ -16,7 +13,14 @@ def _heartbeat(ctx: CallbackContext):
     except Exception as e:
         logging.error(f"Heartbeat error: {e}")
 
-def launch_keep_alive(app: Application):
-    if CHAT:
-        # first=0 ⇒ מתחיל מיד; interval=14min
+def launch_keep_alive(app: Application) -> None:
+    """רושם את ה-Heartbeat כחלק מ-post_init של PTB."""
+    if not CHAT:
+        return
+
+    async def _register_jobs(_: Application) -> None:
+        # עכשיו job_queue קיים ויש לולאת-אירועים
         app.job_queue.run_repeating(_heartbeat, interval=14 * 60, first=0)
+
+    # post_init = פונקציות שרצות אחרי שה-Application הופעל
+    app.post_init(_register_jobs)
