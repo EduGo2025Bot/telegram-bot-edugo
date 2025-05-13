@@ -34,7 +34,7 @@ def _init_webhook() -> None:
         url  = f"https://{host}/webhook/{SECRET}"
         application.bot.delete_webhook(drop_pending_updates=True)
         application.bot.set_webhook(url=url)
-
+_init_webhook()
 @app.post(f"/webhook/{SECRET}")
 def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
