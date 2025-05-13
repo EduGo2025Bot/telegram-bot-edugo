@@ -27,7 +27,7 @@ if __name__ == "__main__":
     application.run_polling()
 
 # --- קטע שרץ ב-Render בלבד – הגדרת webhook ---
-@app.before_app_first_request
+@app.before_first_request
 def _init_webhook() -> None:
     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
