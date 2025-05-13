@@ -119,4 +119,4 @@ async def send_questions(update: Update, qas):
 def register_handlers(app):
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_choice))
-    app.add_handler(MessageHandler(filters.Document.ALL, doc_received)
+    app.add_handler(MessageHandler(filters.Document.ALL, doc_received))
