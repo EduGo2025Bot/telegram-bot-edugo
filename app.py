@@ -5,6 +5,7 @@ from telegram import Update
 from telegram.ext import Application, AIORateLimiter
 from bot.handlers import register_handlers
 from bot.keep_alive import launch_keep_alive
+import asyncio
 
 TOKEN  = os.environ["BOT_TOKEN"]
 SECRET = os.environ["WEBHOOK_SECRET"]
@@ -35,7 +36,6 @@ def _init_webhook() -> None:
 #         application.bot.delete_webhook(drop_pending_updates=True)
 #         application.bot.set_webhook(url=url)
 # _init_webhook()
-import asyncio
 
 async def _init_webhook():
     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
