@@ -16,6 +16,7 @@ from telegram.ext import (
     ContextTypes,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
 )
 
@@ -60,16 +61,21 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─────────────  טיפול בבחירה מהתפריט  ─────────────
 async def menu_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
-    # ✅ תיקון: משתמש שולח "/start" לא כפקודה
+    
+    # בדיקה אם הודעה היא /start כטקסט ולא כפקודה
     if text == "/start":
         await start(update, ctx)
         return
-    if text.startswith("🗂️"):
+        
+    # תפריט ראשי - בחירות
+    if "🗂️" in text:
+        await update.message.reply_text("מכין שאלות מהמאגר...")
         qas = pick_from_bank(MAX_QUESTIONS)
         await send_questions(update, qas)
-    elif text.startswith("📄"):
+    elif "📄" in text:
         await update.message.reply_text("שלח עכשיו קובץ ואפיק ממנו שאלות.")
     else:
+        # לא זוהתה בחירה תקינה
         await update.message.reply_text("לא זיהיתי את הבחירה, נסה שוב /start.")
 
 # ─────────────  קובץ שהתקבל  ─────────────
@@ -93,30 +99,73 @@ async def doc_received(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # הורדה זמנית
     with tempfile.TemporaryDirectory() as tmp:
-        path = await doc.get_file().download_to_drive(custom_path=tmp)
+        await update.message.reply_text("מעבד את הקובץ...")
+        path = await doc.get_file().download_to_drive(os.path.join(tmp, doc.file_name))
         text = extract_text(path)
         if not text.strip():
             await update.message.reply_text("לא הצלחתי לחלץ טקסט מהקובץ 🤔")
             return
+        await update.message.reply_text("מכין שאלות מהקובץ...")
         qas = build_qa_from_text(text, MAX_QUESTIONS)
 
     await send_questions(update, qas)
 
+# ─────────────  מענה על כפתור בשאלה  ─────────────
+async def button_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()  # אישור קבלת הלחיצה
+    
+    user_choice = query.data
+    question_text = query.message.text
+    
+    if user_choice == "skip":
+        await query.edit_message_text(
+            f"{question_text}\n\n⏭️ דילגת על השאלה",
+            reply_markup=None
+        )
+    else:
+        # בדיקת התשובה (צריך להשלים לוגיקה זו)
+        # כרגע מניח שהתשובה נכונה לדוגמה
+        await query.edit_message_text(
+            f"{question_text}\n\nבחרת: {user_choice}\n✅ תשובה נכונה!",
+            reply_markup=None
+        )
+        # אם רוצים להציג תשובה שגויה:
+        # await query.edit_message_text(
+        #     f"{question_text}\n\nבחרת: {user_choice}\n❌ תשובה שגויה. התשובה הנכונה היא: [הכנס תשובה נכונה]",
+        #     reply_markup=None
+        # )
+
 # ─────────────  שליחת שאלות עם כפתורים  ─────────────
 async def send_questions(update: Update, qas):
-    for q in qas:
-        buttons = [
-            InlineKeyboardButton(
-                opt.split(".")[0].strip() if q["type"] == "multiple" else opt,
-                callback_data=opt.split(".")[0].strip() if q["type"] == "multiple" else opt,
-            )
-            for opt in q["options"]
-        ]
-        buttons.append(InlineKeyboardButton("דלג ⏭️", callback_data="skip"))
+    for i, q in enumerate(qas):
+        buttons = []
+        
+        # מסדר את הכפתורים בשורה או בטור לפי סוג השאלה
+        if q["type"] == "multiple":
+            # שאלות אמריקאיות - כפתור לכל שורה
+            keyboard = []
+            for opt in q["options"]:
+                # לוקח רק את האות מהאפשרות (א, ב, ג וכו')
+                option_letter = opt.split(".")[0].strip() if "." in opt else opt
+                keyboard.append([InlineKeyboardButton(opt, callback_data=option_letter)])
+        else:
+            # שאלות נכון/לא נכון - כפתורים באותה שורה
+            keyboard = [[
+                InlineKeyboardButton(opt, callback_data=opt)
+                for opt in q["options"]
+            ]]
+            
+        # מוסיף כפתור דילוג
+        keyboard.append([InlineKeyboardButton("דלג ⏭️", callback_data="skip")])
+        
+        # מוסיף מספור לשאלות
+        question_text = f"שאלה {i+1}/{len(qas)}:\n{q['question']}"
+        
         await update.message.reply_text(
-            q["question"],
+            question_text,
             parse_mode=constants.ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([buttons]),
+            reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
 # ─────────────  רישום ה-handlers  ─────────────
@@ -124,3 +173,4 @@ def register_handlers(app):
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_choice))
     app.add_handler(MessageHandler(filters.Document.ALL, doc_received))
+    app.add_handler(CallbackQueryHandler(button_callback))  # טיפול בכפתורים
