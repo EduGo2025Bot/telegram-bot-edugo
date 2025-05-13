@@ -22,9 +22,9 @@ application = (
 register_handlers(application)
 # launch_keep_alive(application)
 
-# ניתן להריץ לוקלית ב-Polling לצורך בדיקות
-if __name__ == "__main__":
-    application.run_polling()
+# # ניתן להריץ לוקלית ב-Polling לצורך בדיקות
+# if __name__ == "__main__":
+#     application.run_polling()
 
 # --- קטע שרץ ב-Render בלבד – הגדרת webhook ---
 # @app.before_first_request
