@@ -37,18 +37,24 @@ register_handlers(application)
 #         application.bot.set_webhook(url=url)
 # _init_webhook()
 
-async def _init_webhook():
-    if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
-        host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
-        url  = f"https://{host}/webhook/{SECRET}"
-        await application.bot.delete_webhook(drop_pending_updates=True)
-        await application.bot.set_webhook(url=url)
-    # מפעיל את workerים הפנימיים (dispatcher) ברקע
-    await application.initialize()
-    await application.start()         # application.stop() יקרה אוטומטית בסגירה
+# async def _init_webhook():
+#     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
+#         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
+#         url  = f"https://{host}/webhook/{SECRET}"
+#         await application.bot.delete_webhook(drop_pending_updates=True)
+#         await application.bot.set_webhook(url=url)
+#     # מפעיל את workerים הפנימיים (dispatcher) ברקע
+#     await application.initialize()
+#     await application.start()         # application.stop() יקרה אוטומטית בסגירה
 
-# call it (from sync context)
-asyncio.run(_init_webhook())
+# # call it (from sync context)
+# asyncio.run(_init_webhook())
+asyncio.run(
+    application.bot.set_webhook(
+        url=f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/webhook/{SECRET}",
+        drop_pending_updates=True,
+    )
+)
 @app.post(f"/webhook/{SECRET}")
 def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
