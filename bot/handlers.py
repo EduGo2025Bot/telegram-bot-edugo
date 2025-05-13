@@ -60,6 +60,10 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─────────────  טיפול בבחירה מהתפריט  ─────────────
 async def menu_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
+    # ✅ תיקון: משתמש שולח "/start" לא כפקודה
+    if text == "/start":
+        await start(update, ctx)
+        return
     if text.startswith("🗂️"):
         qas = pick_from_bank(MAX_QUESTIONS)
         await send_questions(update, qas)
