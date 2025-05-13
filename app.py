@@ -1,17 +1,26 @@
 # app.py  –  Flask + python-telegram-bot webhook
-import os, typing as t
-from flask import Flask, request, abort
+import os, logging
+from flask import Flask, request, abort, jsonify
 from telegram import Update
 from telegram.ext import Application, AIORateLimiter
 from bot.handlers import register_handlers
 from bot.keep_alive import launch_keep_alive
 import asyncio
 
-TOKEN  = os.environ["BOT_TOKEN"]
+# Set up logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Environment variables
+TOKEN = os.environ["BOT_TOKEN"]
 SECRET = os.environ["WEBHOOK_SECRET"]
 
+# Flask app
 app = Flask(__name__)
 
+# Telegram bot application
 application = (
     Application.builder()
     .token(TOKEN)
@@ -19,46 +28,60 @@ application = (
     .build()
 )
 
-# רישום כל ה-handlers
+# Register handlers
 register_handlers(application)
-# launch_keep_alive(application)
 
-# # ניתן להריץ לוקלית ב-Polling לצורך בדיקות
-# if __name__ == "__main__":
-#     application.run_polling()
+# Initialize webhook
+if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
+    webhook_url = f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/webhook/{SECRET}"
+    
+    # Using application.run_webhook is better than manually setting up webhook
+    @app.before_first_request
+    def setup_webhook():
+        logger.info(f"Setting up webhook at: {webhook_url}")
+        asyncio.run(application.bot.set_webhook(url=webhook_url, drop_pending_updates=True))
+else:
+    logger.warning("RENDER_EXTERNAL_HOSTNAME not set, webhook not configured")
 
-# --- קטע שרץ ב-Render בלבד – הגדרת webhook ---
-# @app.before_first_request
-# def _init_webhook() -> None:
-#     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
-#         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
-#         url  = f"https://{host}/webhook/{SECRET}"
-#         application.bot.delete_webhook(drop_pending_updates=True)
-#         application.bot.set_webhook(url=url)
-# _init_webhook()
+# Health check endpoint
+@app.route("/")
+def index():
+    return jsonify({"status": "ok", "message": "Bot is running"})
 
-# async def _init_webhook():
-#     if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
-#         host = os.environ["RENDER_EXTERNAL_HOSTNAME"]
-#         url  = f"https://{host}/webhook/{SECRET}"
-#         await application.bot.delete_webhook(drop_pending_updates=True)
-#         await application.bot.set_webhook(url=url)
-#     # מפעיל את workerים הפנימיים (dispatcher) ברקע
-#     await application.initialize()
-#     await application.start()         # application.stop() יקרה אוטומטית בסגירה
-
-# # call it (from sync context)
-# asyncio.run(_init_webhook())
-asyncio.run(
-    application.bot.set_webhook(
-        url=f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/webhook/{SECRET}",
-        drop_pending_updates=True,
-    )
-)
-@app.post(f"/webhook/{SECRET}")
+# Webhook endpoint
+@app.route(f"/webhook/{SECRET}", methods=["POST"])
 def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
-        update = Update.de_json(request.json, application.bot)
-        application.update_queue.put_nowait(update)
-        return {"ok": True}
+        try:
+            # Parse update
+            update = Update.de_json(request.json, application.bot)
+            logger.info(f"Received update: {update.update_id}")
+            
+            # Process update
+            application.update_queue.put_nowait(update)
+            return {"ok": True}
+        except Exception as e:
+            logger.error(f"Error processing update: {e}")
+            return {"ok": False, "error": str(e)}, 500
+    logger.warning("Received non-JSON content")
     abort(403)
+
+# Error handler
+@app.errorhandler(404)
+def not_found(error):
+    return {"ok": False, "error": "Not found"}, 404
+
+# Initialize the application properly
+async def init_app():
+    await application.initialize()
+    await application.start()
+    logger.info("Application started")
+
+# When running locally for testing
+if __name__ == "__main__":
+    # Run in polling mode for local development
+    logger.info("Starting bot in polling mode")
+    application.run_polling()
+else:
+    # In production, start the application in webhook mode
+    asyncio.run(init_app())
