@@ -131,30 +131,36 @@ async def send_single_question(message, q):
     buttons = []
     qtype = q.get("type", "").lower()
 
+    # Prepare message text with full options (e.g., "א. ...")
+    message_text = f"{q['question'].strip()}\n\n"
+    letter_options = []  # Used for buttons
+
     for idx, opt in enumerate(q["options"]):
         opt = opt.strip()
         if qtype == "multiple":
+            # Match "א. ..." format
             match = re.match(r"^([א-ת])\.\s*(.+)", opt)
             if match:
-                key = match.group(1).strip()
-                text = opt
+                letter = match.group(1).strip()
+                full_option = opt
             else:
-                key = chr(ord("א") + idx)
-                text = f"{key}. {opt}"
-            callback = key
+                letter = chr(ord("א") + idx)
+                full_option = f"{letter}. {opt}"
         else:
-            text = opt
-            callback = opt
-        buttons.append(InlineKeyboardButton(text=text, callback_data=callback))
+            letter = opt  # For true/false
+            full_option = opt
 
+        message_text += f"{full_option}\n"
+        buttons.append(InlineKeyboardButton(text=letter, callback_data=letter))
+
+    # Add skip button
     buttons.append(InlineKeyboardButton("⏭️ דלג", callback_data="skip"))
 
     await message.reply_text(
-        q["question"],
+        message_text.strip(),
         parse_mode=constants.ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[b] for b in buttons]),
     )
-
 async def handle_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     uid = query.from_user.id
