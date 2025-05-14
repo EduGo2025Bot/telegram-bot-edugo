@@ -28,7 +28,6 @@ MAX_FILE_MB     = 5
 ALLOWED_TYPES   = {".pdf", ".docx", ".pptx"}
 DAILY_LIMIT     = 3
 MAX_QUESTIONS   = 6
-BOT_TOKEN = "7953487884:AAEKr-nX2Fd00DYcGON5v2lELdFDsFtDGaM"
 
 # מבני נתונים
 _user_usage: dict[int, list[datetime]] = defaultdict(list)
@@ -245,13 +244,3 @@ def register_handlers(app):
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_choice))
     app.add_handler(MessageHandler(filters.Document.ALL, doc_received))
     app.add_handler(CallbackQueryHandler(handle_answer))
-
-def main():
-    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
-    app = Application.builder().token(BOT_TOKEN).build()
-    register_handlers(app)
-    print("🤖 הבוט רץ...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
