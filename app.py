@@ -38,26 +38,19 @@ application = (
 )
 register_handlers(application)          # ↖ your handlers.py
 
-# ─────────────  Webhook setup  ─────────────
-def _init_webhook() -> None:
-    host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
-    if host:
-        url = f"https://{host}/webhook/{SECRET}"
-        logger.info("Setting webhook → %s", url)
-        application.bot.delete_webhook(drop_pending_updates=True)
-        application.bot.set_webhook(url=url)
-
-_init_webhook()
 
 # ───────────  Run dispatcher bg  ───────────
 async def _run_bot() -> None:
-    """Initialize PTB and start the dispatcher thread."""
     await application.initialize()
     await application.start()
+    host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+    if host:
+        url = f"https://{host}/webhook/{SECRET}"
+        await application.bot.set_webhook(url=url, drop_pending_updates=True)
+        logger.info("Webhook set → %s", url)
     logger.info("Telegram dispatcher started ✅")
-    # Do *not* call application.idle(); Flask keeps the event loop alive.
 
-# Kick off the background task once at startup
+# No _init_webhook() call at module import
 asyncio.get_event_loop().create_task(_run_bot())
 
 # ────────────  Webhook route  ─────────────
