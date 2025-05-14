@@ -3,7 +3,7 @@ from flask import Flask, request, abort
 from telegram import Update
 from telegram.ext import Application, AIORateLimiter
 from bot.handlers import register_handlers
-from bot.keep_alive import launch_keep_alive   # optional
+from bot.keep_alive import add_keep_alive
 
 TOKEN  = os.environ["BOT_TOKEN"]
 SECRET = os.environ["WEBHOOK_SECRET"]
@@ -17,9 +17,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 application = (
-    Application.builder()
-    .token(TOKEN)
-    .rate_limiter(AIORateLimiter())
+    add_keep_alive(
+        Application.builder()
+        .token(TOKEN)
+        .rate_limiter(AIORateLimiter())
+    )
     .build()
 )
 register_handlers(application)
