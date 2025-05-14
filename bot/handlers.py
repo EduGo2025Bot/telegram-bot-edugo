@@ -22,7 +22,7 @@ from telegram.ext import (
     filters,
 )
 
-from qa_generator import build_qa_from_text, extract_text, pick_from_bank, load_bank
+from bot.qa_generator import build_qa_from_text, extract_text, pick_from_bank, load_bank
 
 MAX_FILE_MB     = 5
 ALLOWED_TYPES   = {".pdf", ".docx", ".pptx"}
