@@ -1,26 +1,24 @@
+# bot/keep_alive.py
 import logging, os
 from telegram.constants import ChatAction
-from telegram.ext import Application, CallbackContext
+from telegram.ext import Application
 
-CHAT = os.environ.get("KEEP_ALIVE_CHAT")  # יכול להיות None
+CHAT = os.getenv("KEEP_ALIVE_CHAT")          # can be empty
 
-def _heartbeat(ctx: CallbackContext) -> None:
+async def _heartbeat(app: Application):
+    """Send 'typing…' every 14-minutes to keep the dyno awake."""
     if not CHAT:
         return
     try:
-        ctx.bot.send_chat_action(chat_id=int(CHAT), action=ChatAction.TYPING)
+        await app.bot.send_chat_action(int(CHAT), ChatAction.TYPING)
         logging.info("Heartbeat sent")
     except Exception as e:
-        logging.error(f"Heartbeat error: {e}")
+        logging.error("Heartbeat error: %s", e)
 
-def launch_keep_alive(app: Application) -> None:
-    """רושם את ה-Heartbeat כחלק מ-post_init של PTB."""
-    if not CHAT:
-        return
-
-    async def _register_jobs(_: Application) -> None:
-        # עכשיו job_queue קיים ויש לולאת-אירועים
-        app.job_queue.run_repeating(_heartbeat, interval=14 * 60, first=0)
-
-    # post_init = פונקציות שרצות אחרי שה-Application הופעל
-    app.post_init(_register_jobs)
+def add_keep_alive(builder):
+    """Call this *before* .build(); returns the same builder."""
+    if CHAT:
+        builder.post_init(lambda app: app.job_queue.run_repeating(
+            _heartbeat, interval=14 * 60, first=0
+        ))
+    return builder
