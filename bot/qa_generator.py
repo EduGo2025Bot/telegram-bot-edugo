@@ -20,7 +20,7 @@ MAX_SLIDES_PPT = 20
 
 # ─────────────  מאגר קבוע (bank.json)  ─────────────
 def load_bank() -> List[Dict]:
-    fp = Path("bank.json")
+    fp = Path("data/bank.json")
     if fp.exists():
         return json.loads(fp.read_text(encoding="utf-8"))
     return []
