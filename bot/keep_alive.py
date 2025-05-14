@@ -41,7 +41,7 @@
 from flask import Flask
 import threading
 
-app = Flask('')
+app = Flask(__name__)
 
 @app.route('/')
 def home():
@@ -53,4 +53,5 @@ def run():
 def launch_keep_alive():
     t = threading.Thread(target=run)
     t.start()
+
 
